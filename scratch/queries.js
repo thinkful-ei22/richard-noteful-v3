@@ -6,27 +6,27 @@ const { MONGODB_URI } = require('../config');
 const Note = require('../models/note');
 
 // Find/Search for notes using Note.find
-mongoose.connect(MONGODB_URI)
-  .then(() => {
-    const searchTerm = /aliquam/i;
-    let filter = {};
+// mongoose.connect(MONGODB_URI)
+//   .then(() => {
+//     const searchTerm = /aliquam/i;
+//     let filter = {};
 
-    if (searchTerm) {
-      filter.title = { $regex: searchTerm };
-      // filter.content = { $regex: searchTerm };
-    }
-    return Note.find({$or : [filter, {content: { $regex: searchTerm }}]}).sort({ updatedAt: 'desc' });
-  })    
-  .then(results => {
-    console.log(results);
-  })
-  .then(() => {
-    return mongoose.disconnect();
-  })
-  .catch(err => {
-    console.error(`ERROR: ${err.message}`);
-    console.error(err);
-  });
+//     if (searchTerm) {
+//       const re = new RegExp(searchTerm, 'i');
+//       filter.$or = [{ title: re },{ content: re }];
+//     }
+//     return Note.find(filter).sort({ updatedAt: 'desc' });
+//   })    
+//   .then(results => {
+//     console.log(results);
+//   })
+//   .then(() => {
+//     return mongoose.disconnect();
+//   })
+//   .catch(err => {
+//     console.error(`ERROR: ${err.message}`);
+//     console.error(err);
+//   });
 
 // Find note by id using Note.findById
 // mongoose.connect(MONGODB_URI)
