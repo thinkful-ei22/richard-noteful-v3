@@ -7,7 +7,7 @@ const Note = require('../models/note');
 
 const seedNotes = require('../db/seed/notes');
 
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URI, { useNewUrlParser: true })
   .then(() => mongoose.connection.db.dropDatabase())
   .then(() => Note.insertMany(seedNotes))
   .then(results => {
@@ -17,3 +17,5 @@ mongoose.connect(MONGODB_URI)
   .catch(err => {
     console.error(err);
   });
+
+  
