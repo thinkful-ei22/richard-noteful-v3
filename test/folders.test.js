@@ -208,45 +208,45 @@ describe('Noteful API resource', function() {
           expect(res).to.have.status(400);
         });
     });
+  });
 
-    describe('DELETE endpoints', () => {
-      it('should delete a folder with given id', () => {
-        let folderHolder;
-        return Folder
-          .findOne()
-          .then(folder => {
-            folderHolder = folder;
-            return chai.request(app).delete(`/api/folders/${folder.id}`);
-          })
-          .then(res => {
-            expect(res).to.have.status(204);
-            return Folder.findById(folderHolder.id);
-          })
-          .then(folder => {
-            expect(folder).to.be.null;
-          });
+  describe('DELETE endpoints', () => {
+    it('should delete a folder with given id', () => {
+      let folderHolder;
+      return Folder
+        .findOne()
+        .then(folder => {
+          folderHolder = folder;
+          return chai.request(app).delete(`/api/folders/${folder.id}`);
+        })
+        .then(res => {
+          expect(res).to.have.status(204);
+          return Folder.findById(folderHolder.id);
+        })
+        .then(folder => {
+          expect(folder).to.be.null;
+        });
   
-      });
+    });
   
-      it('should give a 404 not found ', () => {
-        const emptyId = '990000000000000000000003';
-        return chai
-          .request(app)
-          .delete(`/api/folders/${emptyId}`)
-          .then(res => {
-            expect(res).to.have.status(404);
-          });
-      });
+    it('should give a 404 not found ', () => {
+      const emptyId = '990000000000000000000003';
+      return chai
+        .request(app)
+        .delete(`/api/folders/${emptyId}`)
+        .then(res => {
+          expect(res).to.have.status(404);
+        });
+    });
   
-      it('should give a 400 with invalid id', () => {
-        const invalidId = '1';
-        return chai
-          .request(app)
-          .delete(`/api/folders/${invalidId}`)
-          .then(res => {
-            expect(res).to.have.status(400);
-          });
-      });
+    it('should give a 400 with invalid id', () => {
+      const invalidId = '1';
+      return chai
+        .request(app)
+        .delete(`/api/folders/${invalidId}`)
+        .then(res => {
+          expect(res).to.have.status(400);
+        });
     });
   });
 });

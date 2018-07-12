@@ -9,8 +9,10 @@ const app = require('../server');
 const {TEST_MONGODB_URI} = require('../config');
 
 const Note = require('../models/note');
+const Folder = require('../models/folder');
 
 const seedNotes = require('../db/seed/notes');
+const seedFolders = require('../db/seed/folders');
 
 const expect = chai.expect;
 chai.use(chaiHttp);
@@ -23,7 +25,13 @@ describe('Noteful API resource', function() {
   });
 
   beforeEach(function () {
-    return Note.insertMany(seedNotes);
+    return Promise.all([
+      Note.insertMany(seedNotes),
+      Folder.insertMany(seedFolders)
+    ])
+      .then(()=> {
+        return Note.createIndexes();
+      });
   });
 
   afterEach(function () {
@@ -63,7 +71,7 @@ describe('Noteful API resource', function() {
           result.body.forEach(note => {
             expect(note).to.be.a('object');
             expect(note).to.include.keys(
-              'id','title','content','createdAt','updatedAt'
+              'id','title','content','createdAt','updatedAt', 'folderId'
             );
           });
           noteHolder = result.body[0];
@@ -73,6 +81,11 @@ describe('Noteful API resource', function() {
           expect(noteHolder.id).to.equal(note.id);
           expect(noteHolder.title).to.equal(note.title);
           expect(noteHolder.content).to.equal(note.content);
+          // console.log(note.folderId);
+          // console.log(noteHolder.folderId);
+          // console.log(typeof note.folderId);
+          // console.log(typeof noteHolder.folderId);
+          expect(noteHolder.folderId).to.equal(note.folderId.toString());
           expect(new Date(noteHolder.createdAt)).to.eql(note.createdAt);
           expect(new Date(noteHolder.updatedAt)).to.eql(note.updatedAt);
         });
@@ -80,62 +93,115 @@ describe('Noteful API resource', function() {
 
     it('should return note with given `searchTerm` query', () => {
       const searchTerm = 'gaga';
-      return chai.request(app)
-        .get(`/api/notes?searchTerm=${searchTerm}`)
-        .then(result => {
-          expect(result).to.have.status(200);
-          expect(result).to.be.json;
-          expect(result.body).to.be.a('array');
+      const re = new RegExp(searchTerm, 'i');
+      const dbPromise = Note.find({
+        $or: [{ 'title': re }, { 'content': re }]
+      });
+
+      const apiPromise = chai.request(app)
+        .get(`/api/notes?searchTerm=${searchTerm}`);
+      return Promise.all([dbPromise, apiPromise])
+        .then(([data, res]) => {
+          expect(res).to.have.status(200);
+          expect(res).to.be.json;
+          expect(res.body).to.be.a('array');
+          expect(res.body).to.have.length(1);
+          res.body.forEach(function (item, i) {
+            expect(item).to.be.a('object');
+            expect(item).to.include.all.keys('id', 'title', 'createdAt', 'updatedAt');
+            expect(item.id).to.equal(data[i].id);
+            expect(item.title).to.equal(data[i].title);
+            expect(item.content).to.equal(data[i].content);
+            expect(new Date(item.createdAt)).to.eql(data[i].createdAt);
+            expect(new Date(item.updatedAt)).to.eql(data[i].updatedAt);
+          });
         });
     });
 
-    it('should return note with correct id given id', () => {
-      let res;
-      return Note
-        .findOne()
-        .then(note => {
-          res = note;
-          return chai.request(app)
-            .get(`/api/notes/${res.id}`);
+    it('should return correct search result for a folderId query', () => {
+      let data;
+      return Folder.findOne()
+        .then((_data) => {
+          data = _data;
+          return Promise.all([
+            Note.find({ folderId: data.id }),
+            chai.request(app).get(`/api/notes?folderId=${data.id}`)
+          ]);
         })
-        .then(result => {
-          expect(result).to.be.status(200);
-          expect(result).to.be.json;
-          expect(result.body).to.be.a('object');
-          expect(result.body).to.include.keys(
-            'id', 'title', 'content', 'createdAt', 'updatedAt');
-          expect(result.body.id).to.equal(res.id);
-          expect(result.body.title).to.equal(res.title);
-          expect(result.body.content).to.equal(res.content);
-          return Note.findById(res.id);
-        })
-        .then(note => {
-          expect(res.id).to.equal(note.id);
-          expect(res.title).to.equal(note.title);
-          expect(res.content).to.equal(note.content);
-          expect(new Date(res.createdAt)).to.eql(note.createdAt);
-          expect(new Date(res.updatedAt)).to.eql(note.updatedAt);
+        .then(([data, res]) => {
+          expect(res).to.have.status(200);
+          expect(res).to.be.json;
+          expect(res.body).to.be.a('array');
+          expect(res.body).to.have.length(data.length);
         });
     });
 
-    it('should give a 404 not found ', () => {
-      const emptyId = '990000000000000000000003';
-      return chai
-        .request(app)
-        .get(`/api/notes/${emptyId}`)
-        .then(res => {
-          expect(res).to.have.status(404);
+    it('should return an empty array for an incorrect query', function () {
+      const searchTerm = 'NotValid';
+      // const re = new RegExp(searchTerm, 'i');
+      const dbPromise = Note.find({
+        title: { $regex: searchTerm, $options: 'i' }
+        // $or: [{ 'title': re }, { 'content': re }]
+      });
+      const apiPromise = chai.request(app).get(`/api/notes?searchTerm=${searchTerm}`);
+      return Promise.all([dbPromise, apiPromise])
+        .then(([data, res]) => {
+          expect(res).to.have.status(200);
+          expect(res).to.be.json;
+          expect(res.body).to.be.a('array');
+          expect(res.body).to.have.length(data.length);
         });
     });
 
-    it('should give a 400 with invalid id', () => {
-      const invalidId = '1';
-      return chai
-        .request(app)
-        .get(`/api/notes/${invalidId}`)
-        .then(res => {
-          expect(res).to.have.status(400);
-        });
+    describe('GET /api/notes/:id', () => {
+      it('should return note with correct id given id', () => {
+        let res;
+        return Note
+          .findOne()
+          .then(note => {
+            res = note;
+            return chai.request(app)
+              .get(`/api/notes/${res.id}`);
+          })
+          .then(result => {
+            expect(result).to.be.status(200);
+            expect(result).to.be.json;
+            expect(result.body).to.be.a('object');
+            expect(result.body).to.include.keys(
+              'id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId');
+            expect(result.body.id).to.equal(res.id);
+            expect(result.body.title).to.equal(res.title);
+            expect(result.body.content).to.equal(res.content);
+            return Note.findById(res.id);
+          })
+          .then(note => {
+            expect(res.id).to.equal(note.id);
+            expect(res.title).to.equal(note.title);
+            expect(res.content).to.equal(note.content);
+            expect(new Date(res.createdAt)).to.eql(note.createdAt);
+            expect(new Date(res.updatedAt)).to.eql(note.updatedAt);
+          });
+      });
+
+      it('should give a 404 not found ', () => {
+        const emptyId = '990000000000000000000003';
+        return chai
+          .request(app)
+          .get(`/api/notes/${emptyId}`)
+          .then(res => {
+            expect(res).to.have.status(404);
+          });
+      });
+
+      it('should give a 400 with invalid id', () => {
+        const invalidId = '1';
+        return chai
+          .request(app)
+          .get(`/api/notes/${invalidId}`)
+          .then(res => {
+            expect(res).to.have.status(400);
+          });
+      });
     });
   });
 
