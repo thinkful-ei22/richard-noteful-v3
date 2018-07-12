@@ -45,7 +45,6 @@ describe('Basic Express setup', () => {
           expect(res).to.be.html;
         });
     });
-
   });
 
   describe('404 handler', () => {
