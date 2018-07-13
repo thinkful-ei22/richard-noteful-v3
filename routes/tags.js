@@ -3,32 +3,30 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
-const Folder = require('../models/folder');
+const Tag = require('../models/tag');
 const Note = require('../models/note');
 
-/* ========== GET/READ ALL ITEMS ========== */
+// GET all /tags
 router.get('/', (req, res, next) => {
-  Folder
-    .find()
-    .sort({name: 'asc'})
-    .then(results => {
-      res.json(results);
+  Tag.find()
+    .sort({name : 'asc'})
+    .then(result => {
+      res.json(result);
     })
     .catch(err => next(err));
 });
 
-/* ========== GET/READ A SINGLE ITEM ========== */
+// GET /tags by id
 router.get('/:id', (req, res, next) => {
   const {id} = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    const err = new Error('The `id` is not valid');
+    const err = new Error('The `id` is invalid');
     err.status = 400;
-    return next(err);
+    next(err);
   }
-  
-  Folder
-    .findById(id)
+
+  Tag.findById(id)
     .then(result => {
       if (result) {
         res.json(result);
@@ -37,89 +35,78 @@ router.get('/:id', (req, res, next) => {
       }
     })
     .catch(err => next(err));
-
 });
 
-/* ========== POST/CREATE AN ITEM ========== */
+// POST /tags to create a new tag
 router.post('/', (req, res, next) => {
   const {name} = req.body;
   if (!name) {
-    const err = new Error('Missing `name` in request body');
+    const err = new Error('Missing `name` from request body');
     err.status = 400;
-    return next(err);
+    next(err);
   }
-  const newFolder = {name};
+  const newTag = {name};
 
-  Folder
-    .create(newFolder)
+  Tag.create(newTag)
     .then(result => {
       res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
     })
     .catch(err => {
       if (err.code === 11000) {
-        err = new Error('The folder name already exists');
+        err = new Error('This tag `name` already exist');
         err.status = 400;
       }
       next(err);
     });
-
 });
 
-
-/* ========== PUT/UPDATE A SINGLE ITEM ========== */
+// PUT /tags by id to update a tag
 router.put('/:id', (req, res, next) => {
   const {id} = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    const err = new Error('The `id` is not valid');
+    const err = new Error('The `id` is invalid');
     err.status = 400;
-    return next(err);
+    next(err);
   }
-
   const {name} = req.body;
   if (!name) {
     const err = new Error('Missing `name` in request body');
     err.status = 400;
-    return next(err);
+    next(err);
   }
-  const updateFolder = {name};
+  const updateTag = {name};
 
-  Folder.findByIdAndUpdate(id, updateFolder, {new:true, upsert: true})
-    .then(results => {
-      if (results) {
-        res.json(results);
+  Tag.findByIdAndUpdate(id, updateTag, {new: true})
+    .then(result => {
+      if (result) {
+        res.json(result);
       } else {
         next();
       }
     })
     .catch(err => {
       if (err.code === 11000) {
-        err = new Error('The folder name already exists');
+        err = new Error('This tag `name` already exist');
         err.status = 400;
       }
       next(err);
     });
-
 });
-
-
-/* ========== DELETE/REMOVE A SINGLE ITEM ========== */
+// DELETE /tags by id deletes the tag AND removes it from the notes collection
 router.delete('/:id', (req, res, next) => {
   const {id} = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    const err = new Error('The `id` is not valid');
+    const err = new Error('The `id` is invalid');
     err.status = 400;
-    return next(err);
+    next(err);
   }
 
-  const folderRemovePromise = Folder.findByIdAndRemove(id);
-
-  const noteRemovePromise = Note.updateMany(
-    { folderId: id }, 
-    {$unset: {folderId: ''}}
-  );
-  Promise.all([folderRemovePromise,noteRemovePromise])
+  const tagRemovePromise = Tag.findByIdAndRemove(id);
+  const noteRemovePromise = Note.update({}, {$pull: {tags: id}}, {multi:true});
+  
+  Promise.all([tagRemovePromise, noteRemovePromise])  
     .then(result => {
-      if (result[0]) {   
+      if (result[0]) {
         res.status(204).end();
       } else {
         next();
@@ -127,6 +114,4 @@ router.delete('/:id', (req, res, next) => {
     })
     .catch(err => next(err));
 });
-
-
 module.exports = router;
