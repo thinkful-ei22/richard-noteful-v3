@@ -81,10 +81,6 @@ describe('Noteful API resource', function() {
           expect(noteHolder.id).to.equal(note.id);
           expect(noteHolder.title).to.equal(note.title);
           expect(noteHolder.content).to.equal(note.content);
-          // console.log(note.folderId);
-          // console.log(noteHolder.folderId);
-          // console.log(typeof note.folderId);
-          // console.log(typeof noteHolder.folderId);
           expect(noteHolder.folderId).to.equal(note.folderId.toString());
           expect(new Date(noteHolder.createdAt)).to.eql(note.createdAt);
           expect(new Date(noteHolder.updatedAt)).to.eql(note.updatedAt);
