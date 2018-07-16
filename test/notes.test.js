@@ -10,9 +10,11 @@ const {TEST_MONGODB_URI} = require('../config');
 
 const Note = require('../models/note');
 const Folder = require('../models/folder');
+const Tag = require('../models/tag');
 
 const seedNotes = require('../db/seed/notes');
 const seedFolders = require('../db/seed/folders');
+const seedTags = require('../db/seed/tags');
 
 const expect = chai.expect;
 chai.use(chaiHttp);
@@ -27,11 +29,13 @@ describe('Noteful API resource', function() {
   beforeEach(function () {
     return Promise.all([
       Note.insertMany(seedNotes),
-      Folder.insertMany(seedFolders)
-    ])
-      .then(()=> {
-        return Note.createIndexes();
-      });
+      
+      Folder.insertMany(seedFolders),
+      Folder.createIndexes(),
+
+      Tag.insertMany(seedTags),
+      Tag.createIndexes()
+    ]);
   });
 
   afterEach(function () {
@@ -71,7 +75,7 @@ describe('Noteful API resource', function() {
           result.body.forEach(note => {
             expect(note).to.be.a('object');
             expect(note).to.include.keys(
-              'id','title','content','createdAt','updatedAt', 'folderId'
+              'id','title','content','createdAt','updatedAt', 'folderId', 'tags'
             );
           });
           noteHolder = result.body[0];
@@ -82,6 +86,7 @@ describe('Noteful API resource', function() {
           expect(noteHolder.title).to.equal(note.title);
           expect(noteHolder.content).to.equal(note.content);
           expect(noteHolder.folderId).to.equal(note.folderId.toString());
+          // expect(noteHolder.tags).to.equal(note.tags);
           expect(new Date(noteHolder.createdAt)).to.eql(note.createdAt);
           expect(new Date(noteHolder.updatedAt)).to.eql(note.updatedAt);
         });
@@ -164,7 +169,7 @@ describe('Noteful API resource', function() {
             expect(result).to.be.json;
             expect(result.body).to.be.a('object');
             expect(result.body).to.include.keys(
-              'id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId');
+              'id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId', 'tags');
             expect(result.body.id).to.equal(res.id);
             expect(result.body.title).to.equal(res.title);
             expect(result.body.content).to.equal(res.content);
@@ -217,7 +222,7 @@ describe('Noteful API resource', function() {
           expect(res).to.have.status(201);
           expect(res).to.be.json;
           expect(res.body).to.be.a('object');
-          expect(res.body).to.include.keys('id','title','content', 'createdAt','updatedAt');
+          expect(res.body).to.include.keys('id','title','content', 'createdAt','updatedAt', 'tags');
           expect(res.body.id).to.not.be.null;
           expect(res.body.title).to.equal(newNote.title);
           expect(res.body.content).to.equal(newNote.content);
